@@ -22,7 +22,7 @@ class _HomePageState extends State<HomePage> {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowMultiple: false,
-      allowedExtensions: ['jpg','jpeg', 'pdf', 'mp4','png'],
+      allowedExtensions: ['jpg','jpeg', 'pdf', 'mp4','png','svg','mkv'],
     );
 
     if (result != null) {

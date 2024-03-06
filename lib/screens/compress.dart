@@ -4,9 +4,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_compression_flutter/image_compression_flutter.dart';
+import 'package:pdf_compressor/pdf_compressor.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:video_compress/video_compress.dart';
 
 class CompressPage extends StatefulWidget {
   final FilePickerResult file;
@@ -33,12 +35,21 @@ class _CompressPageState extends State<CompressPage> {
 
     File originalFile = File(file.files.single.path!);
 
-    if (file.files.single.extension == 'jpg' ||
-        file.files.single.extension == 'jpeg' ||
-        file.files.single.extension == 'png') {
+    //image
+    if (file.files.single.extension == 'jpg' || file.files.single.extension == 'jpeg' || file.files.single.extension == 'png'||file.files.single.extension == 'svg') {
       compressImage(originalFile);
-    } else if (file.files.single.extension == 'mp4') {
-    } else if (file.files.single.extension == 'pdf') {}
+    }
+
+    //video
+    else if (file.files.single.extension == 'mp4'||file.files.single.extension == 'mkv') {
+      compressVideo(originalFile);
+    }
+
+    //pdf
+    else if (file.files.single.extension == 'pdf') {
+      compressPdf(originalFile);
+    }
+    
   }
 
   void compressImage(File file) async {
@@ -100,6 +111,99 @@ class _CompressPageState extends State<CompressPage> {
     } catch (e) {
       print('Error while compressing image: $e');
     }
+  }
+
+  void compressPdf(File file)async{
+
+    try{
+
+      final inputPath = file.path;
+      final name = file.path.split('/').last;
+
+      // Check storage permission
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        await Permission.storage.request();
+      }
+
+      // Get the directory for saving compressed PDF
+      Directory _directory = Directory("");
+      if (Platform.isAndroid) {
+        _directory = Directory("/storage/emulated/0/Download");
+      } else {
+        _directory = await getApplicationDocumentsDirectory();
+      }
+      final exPath = _directory.path;
+
+      // Create directory if it doesn't exist
+      await Directory(exPath).create(recursive: true);
+
+      // Compress PDF file
+      final compressedFilePath = '$exPath/${name}_minify_compressed.pdf';
+      await PdfCompressor.compressPdfFile(inputPath, compressedFilePath, CompressQuality.HIGH);
+
+      // Calculate compression ratio
+      int originalSize = await file.length();
+      File compressedFile = File(compressedFilePath);
+      int compressedSize = await compressedFile.length();
+
+      double compressionRatio = (originalSize - compressedSize) / originalSize;
+
+      // Calculate compression percentage
+      double compressionPercentage = compressionRatio * 100;
+
+      setState(() {
+        percent = double.parse(compressionRatio.toStringAsFixed(2)).abs();
+        fileName = name;
+        filePath = compressedFilePath;
+        isLoading = false;
+      });
+
+    }
+    catch(e){
+      print("Error occurred while execution $e");
+    }
+  }
+
+  void compressVideo(File file)async{
+
+    try {
+
+      final inputPath = file.path;
+      final name = file.path.split('/').last;
+
+      // Check storage permission
+      var status = await Permission.storage.status;
+      if (!status.isGranted) {
+        await Permission.storage.request();
+      }
+
+      MediaInfo? mediaInfo = await VideoCompress.compressVideo(
+        inputPath,
+        quality: VideoQuality.LowQuality,
+        deleteOrigin: false,
+        includeAudio: true,
+      );
+
+      // Calculate compression ratio
+      int originalSize = await file.length();
+      File compressedFile = File(mediaInfo!.path!);
+      int compressedSize = await compressedFile.length();
+
+      double compressionRatio = (originalSize - compressedSize) / originalSize;
+
+      setState(() {
+        percent = double.parse(compressionRatio.toStringAsFixed(2)).abs();
+        fileName = name;
+        filePath = mediaInfo.path!;
+        isLoading = false;
+      });
+
+
+    } catch (e) {
+      print('Error while compressing video: $e');
+    }
+
   }
 
   @override
